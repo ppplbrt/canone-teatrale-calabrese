@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canone Teatrale Calabrese 2000–2025 — Mappa 1: Struttura</title>
+
+  <!--
+    ============================================================
+    CANONE TEATRALE CALABRESE 2000–2025
+    Mappa 1: Struttura del canone
+    A cura di Ernesto Orrico
+    Visualizzazione: HTML + SVG + JS vanilla
+    Versione: 1.2 (provvisoria, uso interno)
+    ============================================================
+    Modifiche v1.2:
+    - Nodi a rettangolo con testo interamente contenuto
+    - Nodo radice differenziato visivamente (bordo interno + dimensione)
+    - Criteri di inclusione rimossi dalla mappa,
+      spostati nel pannello laterale della radice
+    ============================================================
+  -->
+
+  <style>
+    /* ── Variabili globali ── */
+    :root {
+      --bg:           #f5f2ec;
+      --bg-panel:     #fffef9;
+      --border:       #c8bfa8;
+      --text:         #1a1a18;
+      --text-muted:   #6b6155;
+
+      /* Colori nodi */
+      --col-root:     #1a1a18;
+      --col-mov1:     #7a3b2e;
+      --col-mov2:     #2e5c4a;
+      --col-mov3:     #2e3f5c;
+      --col-compagnia:#7a5c2e;
+      --col-autore1:  #b85c42;
+      --col-autore2:  #3d876a;
+      --col-autore3:  #3a5585;
+      --col-incerto:  #9b8b6e;
+
+      /* Colori archi */
+      --arc-struttura: #b0a488;
+      --arc-include:   #7aa090;
+      --arc-membro:    #a08050;
+      --arc-collabora: #d89070;
+      --arc-nota:      #a09080;
+
+      --font-ui:    'Georgia', serif;
+      --font-label: 'Courier New', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-ui);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Intestazione ── */
+    header {
+      padding: 9px 18px 8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 0.92rem;
+      font-weight: normal;
+      letter-spacing: 0.04em;
+    }
+    header .subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--font-label);
+    }
+
+    /* ── Layout principale ── */
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Area SVG ── */
+    #svg-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+    }
+    #svg-container:active { cursor: grabbing; }
+    #map-svg { width: 100%; height: 100%; display: block; }
+
+    /* ── Pannello laterale ── */
+    #side-panel {
+      width: 268px;
+      flex-shrink: 0;
+      border-left: 1px solid var(--border);
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #panel-header {
+      padding: 11px 14px 9px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.68rem;
+      font-family: var(--font-label);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+    }
+    #panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+    }
+    #panel-content h2 {
+      font-size: 0.88rem;
+      font-weight: normal;
+      margin-bottom: 5px;
+    }
+    #panel-content .tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-family: var(--font-label);
+      padding: 2px 6px;
+      border-radius: 2px;
+      margin-bottom: 9px;
+      background: var(--border);
+      color: var(--text-muted);
+    }
+    #panel-content p {
+      font-size: 0.76rem;
+      line-height: 1.55;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    #panel-content .works {
+      font-size: 0.7rem;
+      font-family: var(--font-label);
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    #panel-content .works span {
+      display: block;
+      padding: 2px 0;
+      border-bottom: 1px dotted var(--border);
+    }
+    #panel-content .criteria-list {
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+    #panel-content .criteria-list li {
+      font-size: 0.73rem;
+      font-family: var(--font-label);
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin-left: 14px;
+      margin-bottom: 4px;
+    }
+    .panel-empty {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-top: 6px;
+    }
+    .panel-uncertain {
+      font-size: 0.7rem;
+      font-family: var(--font-label);
+      color: var(--col-incerto);
+      margin-top: 6px;
+    }
+    .rel-list { margin-top: 10px; }
+    .rel-list .rel-head {
+      font-size: 0.67rem;
+      font-family: var(--font-label);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+    .rel-list .rel-item {
+      font-size: 0.67rem;
+      font-family: var(--font-label);
+      color: var(--text-muted);
+      margin: 2px 0;
+    }
+
+    /* ── Legenda ── */
+    #legend {
+      border-top: 1px solid var(--border);
+      padding: 11px 14px;
+      font-size: 0.68rem;
+      font-family: var(--font-label);
+      color: var(--text-muted);
+    }
+    .leg-title {
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 7px;
+      font-size: 0.62rem;
+    }
+    .leg-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 3px;
+    }
+    .leg-swatch {
+      width: 14px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .leg-line { width: 22px; height: 2px; flex-shrink: 0; }
+    .leg-line.dashed {
+      background: repeating-linear-gradient(
+        90deg, var(--arc-nota) 0, var(--arc-nota) 4px,
+        transparent 4px, transparent 8px
+      );
+    }
+    .leg-sep { border: none; border-top: 1px solid var(--border); margin: 7px 0; }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      display: flex;
+      gap: 6px;
+      z-index: 10;
+    }
+    .tool-btn {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-label);
+      font-size: 0.7rem;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 3px;
+      letter-spacing: 0.03em;
+      transition: background 0.12s;
+    }
+    .tool-btn:hover { background: var(--border); }
+
+    /* ── SVG: nodi ── */
+    .node-rect {
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .node-rect:hover { opacity: 0.86; }
+
+    .node-text {
+      font-family: var(--font-label);
+      font-weight: 600;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* ── SVG: archi ── */
+    .edge-line {
+      fill: none;
+      stroke-linecap: round;
+      transition: stroke-width 0.15s, opacity 0.15s;
+    }
+    .edge-line.highlighted { stroke-width: 2.5 !important; opacity: 1 !important; }
+    .edge-line.dimmed       { opacity: 0.1; }
+
+    /* Dimming gruppo nodo */
+    .node-group.dimmed .node-rect { opacity: 0.15; }
+    .node-group.dimmed .node-text { opacity: 0.15; }
+    .node-group.dimmed .root-ring { opacity: 0.08; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Canone Teatrale Calabrese 2000–2025</h1>
+  <span class="subtitle">Mappa 1 · Struttura del canone · a cura di E. Orrico · v1.2 provvisoria</span>
+</header>
+
+<div class="main-layout">
+
+  <div id="svg-container">
+    <svg id="map-svg" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr-struttura" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#b0a488"/>
+        </marker>
+        <marker id="arr-include" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#7aa090"/>
+        </marker>
+        <marker id="arr-membro" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#a08050"/>
+        </marker>
+        <marker id="arr-collabora" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#d89070"/>
+        </marker>
+      </defs>
+      <g id="edges-layer"></g>
+      <g id="nodes-layer"></g>
+    </svg>
+
+    <div id="toolbar">
+      <button class="tool-btn" id="btn-reset">↺ Reimposta vista</button>
+      <button class="tool-btn" id="btn-zoomin">+ Zoom</button>
+      <button class="tool-btn" id="btn-zoomout">− Zoom</button>
+    </div>
+  </div>
+
+  <!-- ── Pannello laterale ── -->
+  <div id="side-panel">
+    <div id="panel-header">Dettaglio nodo</div>
+    <div id="panel-content">
+      <p class="panel-empty">Clicca su un nodo per visualizzare i dettagli.</p>
+    </div>
+    <div id="legend">
+      <div class="leg-title">Nodi</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:var(--col-root);outline:1.5px solid #f5f2ec;outline-offset:1px"></div> Canone (radice)</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:var(--col-mov1)"></div> Autori ponte ('90–2000)</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:var(--col-mov2)"></div> Generazione 2000</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:var(--col-mov3)"></div> Nuova onda ('10–'20)</div>
+      <div class="leg-row"><div class="leg-swatch" style="background:var(--col-compagnia)"></div> Compagnia</div>
+      <div class="leg-row">
+        <div class="leg-swatch" style="background:var(--col-autore1);outline:1.5px dashed #c8a060;outline-offset:1px"></div>
+        Dato/data incerto
+      </div>
+      <hr class="leg-sep"/>
+      <div class="leg-title">Relazioni</div>
+      <div class="leg-row"><div class="leg-line" style="background:var(--arc-struttura)"></div> strutturato_da</div>
+      <div class="leg-row"><div class="leg-line" style="background:var(--arc-include)"></div> include</div>
+      <div class="leg-row"><div class="leg-line" style="background:var(--arc-membro)"></div> membro_di</div>
+      <div class="leg-row"><div class="leg-line" style="background:var(--arc-collabora)"></div> collabora_con</div>
+      <div class="leg-row"><div class="leg-line dashed"></div> nota biografica</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// STRUTTURA DATI — modificare nodes[] e edges[] per aggiornare
+// ============================================================
+
+// ── Dimensioni e colori per tipo di nodo ──────────────────────
+const NODE_TYPES = {
+  root:      { w: 120, h: 50,  fontSize: 12,  color: '#1a1a18' },
+  movimento: { w: 118, h: 46,  fontSize: 9.5, color: null      },
+  compagnia: { w: 100, h: 34,  fontSize: 8.5, color: '#7a5c2e' },
+  autore1:   { w: 100, h: 38,  fontSize: 9,   color: '#b85c42' },
+  autore2:   { w: 100, h: 38,  fontSize: 9,   color: '#3d876a' },
+  autore3:   { w: 100, h: 38,  fontSize: 9,   color: '#3a5585' },
+};
+
+const MOV_COLORS = { mov1: '#7a3b2e', mov2: '#2e5c4a', mov3: '#2e3f5c' };
+
+const EDGE_STYLES = {
+  strutturato_da:  { stroke: '#b0a488', width: 1.8, dash: '',     arrow: 'arr-struttura' },
+  include:         { stroke: '#7aa090', width: 1.2, dash: '',     arrow: 'arr-include'   },
+  membro_di:       { stroke: '#a08050', width: 1.2, dash: '',     arrow: 'arr-membro'    },
+  collabora_con:   { stroke: '#d89070', width: 1.5, dash: '5,3', arrow: 'arr-collabora' },
+  nota_biografica: { stroke: '#a09080', width: 1.0, dash: '4,4', arrow: ''              },
+};
+
+// ── Nodi ─────────────────────────────────────────────────────
+const nodes = [
+
+  // Radice
+  { id: 'canone', label: 'Canone\n2000–2025', type: 'root',
+    detail: {
+      titolo: 'Canone teatrale calabrese 2000–2025',
+      tag: 'Radice',
+      desc: 'Ricognizione critica del teatro calabrese professionale nel primo quarto del XXI secolo, a cura di Ernesto Orrico. Strutturata in tre movimenti generazionali.',
+      criteri: [
+        'Professionalità teatrale (circuitazione, premi, pubblicazione dei testi)',
+        'Originalità drammaturgica (scrittura originale o riscrittura scenica)',
+        'Radicamento nel "locale" (lingua, mito, cronaca, memoria calabrese)',
+        'Risonanza extraregionale (diffusione nazionale o internazionale)',
+      ],
+      note: '',
+    }
+  },
+
+  // Movimenti generazionali
+  { id: 'mov1', label: 'Autori ponte\nanni \'90–2000', type: 'movimento',
+    detail: { titolo: 'Autori ponte (anni \'90 → 2000)', tag: 'Movimento I',
+      desc: 'Autori entrati nel nuovo secolo con esperienze maturate sul finire del Novecento: teatro civile, teatro di poesia, scrittura monologante.', note: '' }},
+  { id: 'mov2', label: 'Generazione\n2000', type: 'movimento',
+    detail: { titolo: 'Generazione 2000', tag: 'Movimento II',
+      desc: 'Nuovi linguaggi, contaminazioni linguistiche, scritture che mescolano autobiografia, realismo e rito, recupero di storie dimenticate.', note: '' }},
+  { id: 'mov3', label: 'Nuova onda\nanni \'10–\'20', type: 'movimento',
+    detail: { titolo: 'Nuova onda (anni \'10–\'20)', tag: 'Movimento III',
+      desc: 'Linguaggio post-drammatico, recupero della forma drammatica, forme monologanti.', note: '' }},
+
+  // Compagnie
+  { id: 'comp_sv',  label: 'Scena\nVerticale',   type: 'compagnia',
+    detail: { titolo: 'Scena Verticale', tag: 'Compagnia', desc: 'Compagnia di Dario De Luca e Saverio La Ruina.', note: '' }},
+  { id: 'comp_kry', label: 'Krypton',             type: 'compagnia',
+    detail: { titolo: 'Krypton', tag: 'Compagnia', desc: 'Gruppo con cui Marcello Walter Bruno collabora sul finire degli anni Ottanta.', note: 'Relazione di collaborazione, non di appartenenza stabile.' }},
+  { id: 'comp_lt',  label: 'Libero\nTeatro',      type: 'compagnia',
+    detail: { titolo: 'Libero Teatro', tag: 'Compagnia', desc: 'Compagnia di Max Mazzotta.', note: '' }},
+  { id: 'comp_rs',  label: 'Teatro\nRossosimona', type: 'compagnia',
+    detail: { titolo: 'Teatro Rossosimona', tag: 'Compagnia', desc: 'Compagnia di Lindo Nudo.', note: '' }},
+  { id: 'comp_mc',  label: 'Mana\nChuma',         type: 'compagnia',
+    detail: { titolo: 'Mana Chuma', tag: 'Compagnia', desc: 'Compagnia di Massimo Barilla.', note: '' }},
+  { id: 'comp_ra',  label: 'Compagnia\nRagli',    type: 'compagnia',
+    detail: { titolo: 'Compagnia Ragli', tag: 'Compagnia', desc: 'Compagnia di Rosario Mastrota.', note: '' }},
+  { id: 'comp_st',  label: 'Spazio\nTeatro',      type: 'compagnia',
+    detail: { titolo: 'SpazioTeatro', tag: 'Compagnia', desc: 'Compagnia di Gaetano Tramontana.', note: '' }},
+
+  // Autori Movimento I
+  { id: 'bruno',       label: 'Marcello\nW. Bruno',    type: 'autore1',
+    detail: { titolo: 'Marcello Walter Bruno', tag: 'Autore ponte · Mov. I',
+      desc: 'Fine anni \'80, collaborazione con Krypton. Teatro di poesia nel nuovo secolo.',
+      opere: ['Tibet. I nove miliardi di nomi di Dio (1998)','Codice (1989)','Senza titolo (1989)','Teorema. Studio per Pitagora (1990)','Hamlet Cuts (2004)','La fuga di Pitagora… (2020)'], note: '' }},
+  { id: 'cauteruccio', label: 'Giancarlo\nCauteruccio', type: 'autore1',
+    detail: { titolo: 'Giancarlo Cauteruccio', tag: 'Autore ponte · Mov. I',
+      desc: 'Dal teatro immagine (anni Ottanta) al ritorno alle radici passando per Beckett. Traduzione di Finale di partita in dialetto cosentino.',
+      opere: ['Panza, crianza e ricordanza (data incerta)','Pecchì mi guardi si tu si masculu? (data incerta)','U juacu sta finisciannu (trad. Beckett)'], note: 'Date delle opere principali non disponibili nel testo.' }},
+  { id: 'deluca',      label: 'Dario\nDe Luca',         type: 'autore1',
+    detail: { titolo: 'Dario De Luca', tag: 'Autore ponte · Mov. I · Scena Verticale',
+      desc: 'Classicità reinterpretata, dialetto e mito, teatro-canzone, narrazione, drammi della contemporaneità. Tradotto all\'estero.',
+      opere: ['La stanza della memoria (1995, con La Ruina)','U Tingiutu. Un Aiace di Calabria (2009)','Il vangelo secondo Antonio (2016)','Lo psicopompo (2019)','Re Pipuzzu (2019)','I 4 desideri di Santu Martinu (2024)'], note: '' }},
+  { id: 'dionesalvi',  label: 'Franco\nDionesalvi',      type: 'autore1',
+    detail: { titolo: 'Franco Dionesalvi', tag: 'Autore ponte · Mov. I',
+      desc: 'Teatro di poesia.',
+      opere: ['Cani randagi (1992)','Non seppellitemi vivo (1993)','Una rosa ancora rossa (1995?)','La casa del mago (1997)','Duna, la città (data incerta)'], note: 'Alcune date incerte o mancanti.' }},
+  { id: 'laruina',     label: 'Saverio\nLa Ruina',       type: 'autore1',
+    detail: { titolo: 'Saverio La Ruina', tag: 'Autore ponte · Mov. I · Scena Verticale',
+      desc: 'Attore-autore. Drammaturgia della marginalità femminile e dell\'identità. Monologo come forma etica e politica. Più volte Premio UBU. Tradotto all\'estero.',
+      opere: ['La stanza della memoria (1995, con De Luca)','de-Viados (1998)','Kitsch Hamlet (1999)','Hardore di Otello (2000)','Amleto ovvero cara mammina (2002)','Dissonorata (2006)','La borto (2009)','Italianesi (2011)','Masculu e fiammina (2016)'], note: '' }},
+  { id: 'mazzotta',    label: 'Max\nMazzotta',            type: 'autore1',
+    detail: { titolo: 'Max Mazzotta', tag: 'Autore ponte · Mov. I · Libero Teatro',
+      desc: 'Riscritture dei classici, commedia.',
+      opere: ['Prove aperte (1998)','Questo giorno non esiste (data incerta)','Commedia all\'italiana (2018)','Vita di Ginius (2021)','Romeo e Giulitta Song (2024)'], note: '' }},
+  { id: 'nudo',        label: 'Lindo\nNudo',              type: 'autore1',
+    detail: { titolo: 'Lindo Nudo (1963)', tag: 'Autore ponte · Mov. I · Teatro Rossosimona',
+      desc: 'Teatro fisico e temi sociali, scrittura di scena e riscrittura dei classici. Premio ETI Vetrine 1996, Premio Scenario 2001.',
+      opere: ['Sidà e l\'uomo dal fiore (1995)','The Strange case of dr Jekyll… (1998, con Costantino)','Piedi gonfi. Il mito di Edipo (2000)','È il momento dell\'amore (2001)','Mia Martini. Una donna, una storia'], note: '' }},
+  { id: 'racco',       label: 'Nino\nRacco',              type: 'autore1',
+    detail: { titolo: 'Nino Racco', tag: 'Autore ponte · Mov. I',
+      desc: 'Attore-cantastorie. Riscrittura dei classici del cantastorie, narrazioni originali.',
+      opere: ['Salvatore Giuliano (1994?)','La baronessa di Carini','\'Ntricata storia di Peppe Musolino','Ciao amore ciao'], note: 'Alcune date incerte.' }},
+
+  // Autori Movimento II
+  { id: 'barilla',    label: 'Massimo\nBarilla',     type: 'autore2',
+    detail: { titolo: 'Massimo Barilla', tag: 'Generazione 2000 · Mana Chuma',
+      desc: 'Memoria civile, teatro d\'inchiesta poetico. Tradotto all\'estero.',
+      opere: ['Spine (2003)','Come un granello di sabbia','70 volte sud (con S. Arena)'], note: '' }},
+  { id: 'colica',     label: 'Katia\nColica',        type: 'autore2',
+    detail: { titolo: 'Katia Colica', tag: 'Generazione 2000',
+      desc: 'Co-autrice con Gaetano Tramontana.',
+      opere: ['Un altro metro ancora (con Tramontana)','Ulisse on the road','Persefone il ritorno','PPP amore e lotta'], note: '' }},
+  { id: 'costantino', label: 'Vincenza\nCostantino', type: 'autore2',
+    detail: { titolo: 'Vincenza Costantino (1973)', tag: 'Generazione 2000',
+      desc: 'Lingua ibrida, emigrazione, teatro politico e poetico.',
+      opere: ['Jennu brigannu (2005)','Sulle acque sui rovi (2007)','L\'emigrazione è puttana (2008)','Malamerica (2016)'], note: '' }},
+  { id: 'mastrota',   label: 'Rosario\nMastrota',    type: 'autore2',
+    detail: { titolo: 'Rosario Mastrota', tag: 'Generazione 2000 · Compagnia Ragli',
+      desc: '',
+      opere: ['Salve Reggina (2011)','L\'Italia s\'è desta (2012)','Panenostro (2014)','Onions. In bocca al mare (2014, con Cozzolino)','Ficcasoldi'], note: '' }},
+  { id: 'orrico',     label: 'Ernesto\nOrrico',       type: 'autore2',
+    detail: { titolo: 'Ernesto Orrico', tag: 'Generazione 2000 · curatore della ricognizione',
+      desc: 'Teatro politico, corpo monologante, rapporto tra voce e musica. Curatore del presente canone.',
+      opere: ['Nel sangue. Rocco Gatto (2007, con Costantino)','\'a Calabria è morta (2009)','La superficie della lotta (2012)','Militante d\'Occidente (2012)','#neoeroina (2013, con Costantino)','La mia idea. Memoria di Joe Zangara (2018)','Hamlet in Pieces (2024)'], note: '' }},
+  { id: 'scialis',    label: 'Paola\nScialis',        type: 'autore2',
+    detail: { titolo: 'Paola Scialis', tag: 'Generazione 2000',
+      desc: 'Drammaturgia esoterica e poetica, performance.',
+      opere: ['Vitriol (data incerta)','In bocca al lupo – ovvero l\'uomo nero arriva dal mare (data incerta)'], note: 'Date delle opere non disponibili nel testo.' }},
+  { id: 'suriano',    label: 'Francesco\nSuriano',    type: 'autore2',
+    detail: { titolo: 'Francesco Suriano', tag: 'Generazione 2000',
+      desc: 'Recupero del dialetto come lingua poetica e tragica. Temi storici e sociali.',
+      opere: ['Roccu u stortu (2001)','\'a cascia \'nfernali (2003)','L\'arrobbafumu (2004)','Perché il cane si mangia le ossa (2010)','Salvatore, cacaticchiu… (2012)','Peer \'u stortu (2013)'], note: '' }},
+  { id: 'tavano',     label: 'Saverio\nTavano',       type: 'autore2',
+    detail: { titolo: 'Saverio Tavano', tag: 'Generazione 2000',
+      desc: 'Paternità, conflitto, riconciliazione.',
+      opere: ['Patres','Semper fidelis','Formiche','\'u figghiu?'], note: 'Siciliano di origine, vive in Calabria da molti anni. Collocazione nel canone parzialmente problematica.' }},
+  { id: 'tramontana', label: 'Gaetano\nTramontana',   type: 'autore2',
+    detail: { titolo: 'Gaetano Tramontana', tag: 'Generazione 2000 · SpazioTeatro',
+      desc: 'Attore-autore, teatro di narrazione.',
+      opere: ['Un altro metro ancora (2016, con Colica)','Venuti dal mare (2023)'], note: '' }},
+
+  // Autori Movimento III
+  { id: 'aiello',    label: 'Francesco\nAiello',      type: 'autore3',
+    detail: { titolo: 'Francesco Aiello', tag: 'Nuova onda · Mov. III',
+      desc: 'Tematiche sociali e politiche, disincanto generazionale.',
+      opere: ['L\'incidente. Io sono già stato morto','Lucciole. D\'insetti, punk e Calabria paranoica (2020)','L\'acquasantissima (con Pugliese)','Dammi un attimo (2022, con Greco)','Quattro pezzi facili meno una (2024, con Picerno)'], note: '' }},
+  { id: 'bianchi',   label: 'Emi\nBianchi',           type: 'autore3',
+    detail: { titolo: 'Emi Bianchi', tag: 'Nuova onda · Mov. III',
+      desc: 'Indagine sul femminile, drammaturgia del mito popolare.',
+      opere: ['La magara (con Emilio Suraci, data incerta)'], note: 'Data opera non disponibile.' }},
+  { id: 'colosimo',  label: 'Angelo\nColosimo',       type: 'autore3',
+    detail: { titolo: 'Angelo Colosimo', tag: 'Nuova onda · Mov. III',
+      desc: '',
+      opere: ['Bestie rare (2012)','Simu e puarcu (2017)'], note: '' }},
+  { id: 'cozzolino', label: 'Dalila\nCozzolino',      type: 'autore3',
+    detail: { titolo: 'Dalila Cozzolino', tag: 'Nuova onda · Mov. III',
+      desc: '',
+      opere: ['Goodbye Horses (2025)'], note: 'Scheda molto essenziale nel testo di riferimento.' }},
+  { id: 'gallo',     label: 'Carlo\nGallo',           type: 'autore3',
+    detail: { titolo: 'Carlo Gallo', tag: 'Nuova onda · Mov. III',
+      desc: 'Recupero di lingue e storie arcaiche, voce monologante.',
+      opere: ['Bollari (2014)','\'ncielo e terra (2019)'], note: '' }},
+  { id: 'nigro',     label: 'Emilio\nNigro',          type: 'autore3',
+    detail: { titolo: 'Emilio Nigro', tag: 'Nuova onda · Mov. III',
+      desc: 'Narrazione, poesia.',
+      opere: ['Avemmaria (2016)'], note: '' }},
+  { id: 'pratico',   label: 'Lorenzo\nPraticò',       type: 'autore3',
+    detail: { titolo: 'Lorenzo Praticò', tag: 'Nuova onda · Mov. III',
+      desc: 'Tematiche sociali e storiche, scrittura monologante, ricerca sul linguaggio.',
+      opere: ['Spingi e respira','\'U filu','4 x 25','Spettri di Newton (2024)','Mi importa (2025)'], note: '' }},
+  { id: 'ianni',     label: 'Elisa Ianni\nPalarchio', type: 'autore3',
+    detail: { titolo: 'Elisa Ianni Palarchio', tag: 'Nuova onda · Mov. III',
+      desc: 'Linguaggio, corpo, memoria.',
+      opere: ['Tenimmoce accussì'], note: '' }},
+  { id: 'scorza',    label: 'Elvira\nScorza',          type: 'autore3',
+    detail: { titolo: 'Elvira Scorza', tag: 'Nuova onda · Mov. III',
+      desc: '',
+      opere: ['Tutta colpa di Ugo','Il vangelo di Giovanna'], note: '' }},
+  { id: 'vetromilo', label: 'Gianluca\nVetromilo',    type: 'autore3',
+    detail: { titolo: 'Gianluca Vetromilo', tag: 'Nuova onda · Mov. III',
+      desc: 'Teatro sociale e politico, corpo monologante.',
+      opere: ['La nostra prima ultima cena (2018)','Smart Work (2024?, con Canzonieri)'], note: '' }},
+];
+
+// ── Archi ────────────────────────────────────────────────────
+const edges = [
+  { source: 'canone', target: 'mov1', type: 'strutturato_da', certain: true },
+  { source: 'canone', target: 'mov2', type: 'strutturato_da', certain: true },
+  { source: 'canone', target: 'mov3', type: 'strutturato_da', certain: true },
+  { source: 'mov1', target: 'bruno',       type: 'include', certain: true },
+  { source: 'mov1', target: 'cauteruccio', type: 'include', certain: true },
+  { source: 'mov1', target: 'deluca',      type: 'include', certain: true },
+  { source: 'mov1', target: 'dionesalvi',  type: 'include', certain: true },
+  { source: 'mov1', target: 'laruina',     type: 'include', certain: true },
+  { source: 'mov1', target: 'mazzotta',    type: 'include', certain: true },
+  { source: 'mov1', target: 'nudo',        type: 'include', certain: true },
+  { source: 'mov1', target: 'racco',       type: 'include', certain: true },
+  { source: 'mov2', target: 'barilla',     type: 'include', certain: true },
+  { source: 'mov2', target: 'colica',      type: 'include', certain: true },
+  { source: 'mov2', target: 'costantino',  type: 'include', certain: true },
+  { source: 'mov2', target: 'mastrota',    type: 'include', certain: true },
+  { source: 'mov2', target: 'orrico',      type: 'include', certain: true },
+  { source: 'mov2', target: 'scialis',     type: 'include', certain: true },
+  { source: 'mov2', target: 'suriano',     type: 'include', certain: true },
+  { source: 'mov2', target: 'tavano',      type: 'include', certain: true },
+  { source: 'mov2', target: 'tramontana',  type: 'include', certain: true },
+  { source: 'mov3', target: 'aiello',      type: 'include', certain: true },
+  { source: 'mov3', target: 'bianchi',     type: 'include', certain: true },
+  { source: 'mov3', target: 'colosimo',    type: 'include', certain: true },
+  { source: 'mov3', target: 'cozzolino',   type: 'include', certain: true },
+  { source: 'mov3', target: 'gallo',       type: 'include', certain: true },
+  { source: 'mov3', target: 'nigro',       type: 'include', certain: true },
+  { source: 'mov3', target: 'pratico',     type: 'include', certain: true },
+  { source: 'mov3', target: 'ianni',       type: 'include', certain: true },
+  { source: 'mov3', target: 'scorza',      type: 'include', certain: true },
+  { source: 'mov3', target: 'vetromilo',   type: 'include', certain: true },
+  { source: 'deluca',     target: 'comp_sv',  type: 'membro_di', certain: true },
+  { source: 'laruina',    target: 'comp_sv',  type: 'membro_di', certain: true },
+  { source: 'bruno',      target: 'comp_kry', type: 'membro_di', certain: true },
+  { source: 'mazzotta',   target: 'comp_lt',  type: 'membro_di', certain: true },
+  { source: 'nudo',       target: 'comp_rs',  type: 'membro_di', certain: true },
+  { source: 'barilla',    target: 'comp_mc',  type: 'membro_di', certain: true },
+  { source: 'mastrota',   target: 'comp_ra',  type: 'membro_di', certain: true },
+  { source: 'tramontana', target: 'comp_st',  type: 'membro_di', certain: true },
+  { source: 'deluca',     target: 'laruina',    type: 'collabora_con', certain: true },
+  { source: 'colica',     target: 'tramontana', type: 'collabora_con', certain: true },
+  { source: 'orrico',     target: 'costantino', type: 'collabora_con', certain: true },
+  { source: 'costantino', target: 'nudo',       type: 'collabora_con', certain: true },
+  { source: 'tavano', target: 'mov2', type: 'nota_biografica', certain: false },
+];
+
+// ============================================================
+// LAYOUT — canvas virtuale 1700 × 1100
+// ============================================================
+
+const CW = 1700, CH = 1100;
+const cx = CW / 2;
+
+// Colonne orizzontali dei tre movimenti
+const col1x = 200,  col2x = CW / 2, col3x = CW - 200;
+const movY  = 240;  // y nodi movimento
+const authY0 = 380; // y primo autore
+const authDY = 100; // passo verticale autori
+
+// Helper posizione
+function pos(id, x, y) { return { id, x, y }; }
+
+const positions = [
+  pos('canone', cx,     100),
+  pos('mov1',   col1x,  movY),
+  pos('mov2',   col2x,  movY),
+  pos('mov3',   col3x,  movY),
+
+  // Autori Mov I — due sotto-colonne
+  pos('bruno',       col1x - 112, authY0 + 0 * authDY),
+  pos('cauteruccio', col1x + 112, authY0 + 0 * authDY),
+  pos('deluca',      col1x - 112, authY0 + 1 * authDY),
+  pos('laruina',     col1x + 112, authY0 + 1 * authDY),
+  pos('mazzotta',    col1x - 112, authY0 + 2 * authDY),
+  pos('nudo',        col1x + 112, authY0 + 2 * authDY),
+  pos('dionesalvi',  col1x - 112, authY0 + 3 * authDY),
+  pos('racco',       col1x + 112, authY0 + 3 * authDY),
+
+  // Compagnie Mov I
+  pos('comp_sv',  col1x,        authY0 + 4 * authDY + 40),
+  pos('comp_kry', col1x - 112,  authY0 + 5 * authDY + 20),
+  pos('comp_lt',  col1x,        authY0 + 5 * authDY + 20),
+  pos('comp_rs',  col1x + 112,  authY0 + 5 * authDY + 20),
+
+  // Autori Mov II — due sotto-colonne
+  pos('barilla',    col2x - 112, authY0 + 0 * authDY),
+  pos('colica',     col2x + 112, authY0 + 0 * authDY),
+  pos('costantino', col2x - 112, authY0 + 1 * authDY),
+  pos('mastrota',   col2x + 112, authY0 + 1 * authDY),
+  pos('orrico',     col2x - 112, authY0 + 2 * authDY),
+  pos('scialis',    col2x + 112, authY0 + 2 * authDY),
+  pos('suriano',    col2x - 112, authY0 + 3 * authDY),
+  pos('tavano',     col2x + 112, authY0 + 3 * authDY),
+  pos('tramontana', col2x,       authY0 + 4 * authDY + 20),
+
+  // Compagnie Mov II
+  pos('comp_mc', col2x - 112, authY0 + 5 * authDY + 20),
+  pos('comp_ra', col2x,       authY0 + 5 * authDY + 20),
+  pos('comp_st', col2x + 112, authY0 + 5 * authDY + 20),
+
+  // Autori Mov III — due sotto-colonne
+  pos('aiello',    col3x - 112, authY0 + 0 * authDY),
+  pos('bianchi',   col3x + 112, authY0 + 0 * authDY),
+  pos('colosimo',  col3x - 112, authY0 + 1 * authDY),
+  pos('cozzolino', col3x + 112, authY0 + 1 * authDY),
+  pos('gallo',     col3x - 112, authY0 + 2 * authDY),
+  pos('nigro',     col3x + 112, authY0 + 2 * authDY),
+  pos('pratico',   col3x - 112, authY0 + 3 * authDY),
+  pos('ianni',     col3x + 112, authY0 + 3 * authDY),
+  pos('scorza',    col3x - 112, authY0 + 4 * authDY + 20),
+  pos('vetromilo', col3x + 112, authY0 + 4 * authDY + 20),
+];
+
+const posById = {};
+positions.forEach(p => { posById[p.id] = { x: p.x, y: p.y }; });
+nodes.forEach(n => {
+  const p = posById[n.id];
+  n.x = p ? p.x : cx;
+  n.y = p ? p.y : 100;
+});
+
+// ============================================================
+// RENDERING SVG
+// ============================================================
+
+const svg        = document.getElementById('map-svg');
+const edgesLayer = document.getElementById('edges-layer');
+const nodesLayer = document.getElementById('nodes-layer');
+
+let vbX = 0, vbY = 0, vbW = CW, vbH = CH;
+const INITIAL_VB = { x: 0, y: 0, w: CW, h: CH };
+
+function applyViewBox() {
+  svg.setAttribute('viewBox', `${vbX} ${vbY} ${vbW} ${vbH}`);
+}
+applyViewBox();
+
+const nodeById = {};
+nodes.forEach(n => { nodeById[n.id] = n; });
+
+// ── Archi ──
+const edgeSvgEls = [];
+edges.forEach(e => {
+  const sn = nodeById[e.source], tn = nodeById[e.target];
+  if (!sn || !tn) return;
+  const st = EDGE_STYLES[e.type] || EDGE_STYLES['strutturato_da'];
+
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', sn.x); line.setAttribute('y1', sn.y);
+  line.setAttribute('x2', tn.x); line.setAttribute('y2', tn.y);
+  line.setAttribute('stroke', st.stroke);
+  line.setAttribute('stroke-width', st.width);
+  if (st.dash)  line.setAttribute('stroke-dasharray', st.dash);
+  if (st.arrow) line.setAttribute('marker-end', `url(#${st.arrow})`);
+  line.classList.add('edge-line');
+  line.dataset.source = e.source;
+  line.dataset.target = e.target;
+
+  const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+  title.textContent = `${e.type}${e.certain ? '' : ' (incerto)'}`;
+  line.appendChild(title);
+
+  edgesLayer.appendChild(line);
+  edgeSvgEls.push({ el: line, edge: e });
+});
+
+// ── Nodi ──
+const nodeSvgGroups = {};
+nodes.forEach(n => {
+  const tc  = NODE_TYPES[n.type] || NODE_TYPES['autore1'];
+  let fill  = tc.color;
+  if (n.type === 'movimento') fill = MOV_COLORS[n.id] || '#555';
+
+  const hw = tc.w / 2, hh = tc.h / 2;
+
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('transform', `translate(${n.x},${n.y})`);
+  g.classList.add('node-group');
+  g.dataset.id = n.id;
+
+  // Rettangolo principale
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', -hw); rect.setAttribute('y', -hh);
+  rect.setAttribute('width', tc.w); rect.setAttribute('height', tc.h);
+  rect.setAttribute('rx', n.type === 'root' ? 6 : 4);
+  rect.setAttribute('fill', fill);
+  rect.classList.add('node-rect');
+
+  // Bordo tratteggiato per dati incerti
+  if (n.detail && n.detail.note && n.detail.note.length > 0) {
+    rect.setAttribute('stroke', '#c8a060');
+    rect.setAttribute('stroke-width', '1.5');
+    rect.setAttribute('stroke-dasharray', '4,2');
+  }
+  g.appendChild(rect);
+
+  // Anello decorativo per nodo radice
+  if (n.type === 'root') {
+    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    ring.setAttribute('x', -hw + 4); ring.setAttribute('y', -hh + 4);
+    ring.setAttribute('width', tc.w - 8); ring.setAttribute('height', tc.h - 8);
+    ring.setAttribute('rx', 3);
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', '#f5f2ec');
+    ring.setAttribute('stroke-width', '1');
+    ring.setAttribute('opacity', '0.5');
+    ring.classList.add('root-ring');
+    g.appendChild(ring);
+  }
+
+  // Testo centrato, multi-riga
+  const lines  = n.label.split('\n');
+  const lineH  = tc.fontSize * 1.3;
+  const startY = -(lines.length * lineH) / 2 + lineH * 0.5;
+
+  lines.forEach((txt, li) => {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', 0);
+    t.setAttribute('y', startY + li * lineH);
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('dominant-baseline', 'middle');
+    t.setAttribute('fill', '#f5f2ec');
+    t.setAttribute('font-size', tc.fontSize);
+    t.classList.add('node-text');
+    t.textContent = txt;
+    g.appendChild(t);
+  });
+
+  g.addEventListener('click', ev => { ev.stopPropagation(); selectNode(n.id); });
+  nodesLayer.appendChild(g);
+  nodeSvgGroups[n.id] = g;
+});
+
+// ============================================================
+// INTERAZIONE
+// ============================================================
+
+let selectedNodeId = null;
+
+function selectNode(id) {
+  if (selectedNodeId === id) { clearSelection(); return; }
+  selectedNodeId = id;
+  updateHighlight(id);
+  updatePanel(id);
+}
+
+function clearSelection() {
+  selectedNodeId = null;
+  edgeSvgEls.forEach(({ el }) => el.classList.remove('highlighted', 'dimmed'));
+  Object.values(nodeSvgGroups).forEach(g => g.classList.remove('dimmed'));
+  document.getElementById('panel-content').innerHTML =
+    '<p class="panel-empty">Clicca su un nodo per visualizzare i dettagli.</p>';
+}
+
+svg.addEventListener('click', () => clearSelection());
+
+function updateHighlight(id) {
+  const connEdges = new Set(), connNodes = new Set([id]);
+  edgeSvgEls.forEach(({ el, edge }) => {
+    if (edge.source === id || edge.target === id) {
+      connEdges.add(el);
+      connNodes.add(edge.source);
+      connNodes.add(edge.target);
+    }
+  });
+  edgeSvgEls.forEach(({ el }) => {
+    el.classList.toggle('highlighted', connEdges.has(el));
+    el.classList.toggle('dimmed', !connEdges.has(el));
+  });
+  Object.keys(nodeSvgGroups).forEach(nid => {
+    nodeSvgGroups[nid].classList.toggle('dimmed', !connNodes.has(nid));
+  });
+}
+
+function updatePanel(id) {
+  const n = nodeById[id];
+  if (!n) return;
+  const d = n.detail;
+  let html = `<h2>${d.titolo}</h2><span class="tag">${d.tag}</span>`;
+  if (d.desc) html += `<p>${d.desc}</p>`;
+
+  // Criteri (solo nodo radice)
+  if (d.criteri && d.criteri.length > 0) {
+    html += `<p style="font-size:0.72rem;font-family:var(--font-label);color:var(--text-muted);margin-bottom:3px;">Criteri di inclusione:</p>`;
+    html += `<ul class="criteria-list">${d.criteri.map(c => `<li>${c}</li>`).join('')}</ul>`;
+  }
+
+  if (d.opere && d.opere.length > 0) {
+    html += `<div class="works" style="margin-top:8px;">${d.opere.map(o => `<span>${o}</span>`).join('')}</div>`;
+  }
+  if (d.note) html += `<p class="panel-uncertain">⚠ ${d.note}</p>`;
+
+  const rels = edges.filter(e => e.source === id || e.target === id);
+  if (rels.length > 0) {
+    html += `<div class="rel-list"><div class="rel-head">Relazioni (${rels.length})</div>`;
+    rels.forEach(e => {
+      const other  = e.source === id ? e.target : e.source;
+      const dir    = e.source === id ? '→' : '←';
+      const oLabel = nodeById[other] ? nodeById[other].label.replace('\n', ' ') : other;
+      html += `<div class="rel-item">${dir} <em>${e.type}</em> ${oLabel}${e.certain ? '' : ' (?)'}</div>`;
+    });
+    html += `</div>`;
+  }
+  document.getElementById('panel-content').innerHTML = html;
+}
+
+// ============================================================
+// PAN, ZOOM, DRAG
+// ============================================================
+
+let isPanning = false, panStart = {}, vbStart = {};
+let draggingNode = null, dragOffset = {};
+const container = document.getElementById('svg-container');
+
+container.addEventListener('mousedown', e => {
+  if (e.target.closest('.node-group')) return;
+  isPanning = true;
+  panStart = { x: e.clientX, y: e.clientY };
+  vbStart  = { x: vbX, y: vbY };
+});
+
+Object.keys(nodeSvgGroups).forEach(id => {
+  nodeSvgGroups[id].addEventListener('mousedown', e => {
+    e.stopPropagation();
+    draggingNode = id;
+    const r  = container.getBoundingClientRect();
+    const sx = vbW / r.width, sy = vbH / r.height;
+    dragOffset = {
+      x: vbX + (e.clientX - r.left) * sx - nodeById[id].x,
+      y: vbY + (e.clientY - r.top)  * sy - nodeById[id].y,
+    };
+  });
+});
+
+window.addEventListener('mousemove', e => {
+  const r  = container.getBoundingClientRect();
+  const sx = vbW / r.width, sy = vbH / r.height;
+  if (isPanning) {
+    vbX = vbStart.x - (e.clientX - panStart.x) * sx;
+    vbY = vbStart.y - (e.clientY - panStart.y) * sy;
+    applyViewBox();
+  }
+  if (draggingNode) {
+    const n = nodeById[draggingNode];
+    n.x = vbX + (e.clientX - r.left) * sx - dragOffset.x;
+    n.y = vbY + (e.clientY - r.top)  * sy - dragOffset.y;
+    nodeSvgGroups[draggingNode].setAttribute('transform', `translate(${n.x},${n.y})`);
+    edgeSvgEls.forEach(({ el, edge }) => {
+      if (edge.source === draggingNode) { el.setAttribute('x1', n.x); el.setAttribute('y1', n.y); }
+      if (edge.target === draggingNode) { el.setAttribute('x2', n.x); el.setAttribute('y2', n.y); }
+    });
+  }
+});
+
+window.addEventListener('mouseup', () => { isPanning = false; draggingNode = null; });
+
+container.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f  = e.deltaY > 0 ? 1.12 : 0.89;
+  const r  = container.getBoundingClientRect();
+  const mx = (e.clientX - r.left) / r.width;
+  const my = (e.clientY - r.top)  / r.height;
+  const nW = vbW * f, nH = vbH * f;
+  vbX += (vbW - nW) * mx; vbY += (vbH - nH) * my;
+  vbW = nW; vbH = nH;
+  applyViewBox();
+}, { passive: false });
+
+// Toolbar
+document.getElementById('btn-reset').addEventListener('click', () => {
+  vbX = INITIAL_VB.x; vbY = INITIAL_VB.y; vbW = INITIAL_VB.w; vbH = INITIAL_VB.h;
+  applyViewBox(); clearSelection();
+});
+document.getElementById('btn-zoomin').addEventListener('click', () => {
+  const nW = vbW * 0.8, nH = vbH * 0.8;
+  vbX += (vbW - nW) * 0.5; vbY += (vbH - nH) * 0.5;
+  vbW = nW; vbH = nH; applyViewBox();
+});
+document.getElementById('btn-zoomout').addEventListener('click', () => {
+  const nW = vbW * 1.25, nH = vbH * 1.25;
+  vbX += (vbW - nW) * 0.5; vbY += (vbH - nH) * 0.5;
+  vbW = nW; vbH = nH; applyViewBox();
+});
+</script>
+</body>
+</html>
